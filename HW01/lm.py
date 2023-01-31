@@ -3,11 +3,13 @@ from collections import defaultdict
 import argparse
 
 from numpy import mean
-
+import re
 import nltk
 from nltk import FreqDist
 from nltk.util import bigrams
 from nltk.tokenize import TreebankWordTokenizer
+from nltk.corpus import treebank
+from nltk.tokenize.treebank import TreebankWordDetokenizer
 
 kLM_ORDER = 2
 kUNK_CUTOFF = 3
@@ -129,6 +131,7 @@ class BigramLanguageModel:
         # Modify this code to return the correct value.
         bigram =  context + " " + word if context != "" else word 
         return lg(self._train_vocab[bigram] / self._train_vocab[context]) if (self._train_vocab[context] != 0 and bigram in self._train_vocab) else kNEG_INF
+        # return (self._train_vocab[bigram] / self._train_vocab[context]) if (self._train_vocab[context] != 0 and bigram in self._train_vocab) else kNEG_INF
 
 
     def vocab_length(self):
@@ -194,7 +197,7 @@ class BigramLanguageModel:
         # code that will hopefully get you started.
         #add counts associated with a sentence
         for context, word in bigrams(self.tokenize_and_censor(sentence)):
-            print(context, word)
+            # print(context, word)
             
 
             if word in self._train_vocab:
@@ -216,6 +219,9 @@ class BigramLanguageModel:
         """
         return 2.0 ** (-1.0 * mean([method(context, word) for context, word in \
                                     bigrams(self.tokenize_and_censor(sentence))]))
+        # return 2.0 ** (-1.0 * mean([method(context, word) for context, word in \
+        #                             bigrams(sentence)]))
+
 
     def sample(self, method, samples=25):
         """
@@ -286,8 +292,22 @@ if __name__ == "__main__":
                            'jelinek_mercer', 'good_turing', 'laplace'], \
       "Invalid estimation method"
 
-    sent = input()
-    while sent:
-        print("#".join(str(x) for x in lm.tokenize_and_censor(sent)))
-        print(lm.perplexity(sent, getattr(lm, args.method)))
-        sent = input()
+    # sent = input()
+    
+    # while sent:
+    #     print("#".join(str(x) for x in lm.tokenize_and_censor(sent)))
+    #     print(lm.perplexity(sent, getattr(lm, args.method)))
+    #     sent = input()
+
+    sentences = treebank.sents()
+    d = {}
+    for sentence in sentences:
+        sentence = TreebankWordDetokenizer().detokenize(sentence)
+        # print(sentence)
+        s = "#".join(str(x) for x in lm.tokenize_and_censor(sentence))
+        # print(s)
+        p = lm.perplexity(sentence, getattr(lm, args.method))
+        d[sentence] = p
+        # print(p)
+    sorted_dict = dict(sorted(d.items(), key=lambda item: item[1], reverse = True))
+    print(sorted_dict)
