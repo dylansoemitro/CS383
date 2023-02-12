@@ -38,7 +38,12 @@ class TfIdf:
         self._normalizer = normalize_function
 
         # Add your code here!
+        self._vocab[kUNK] = 0
+        self._train_vocab = defaultdict(int)
         self._doc_freq = defaultdict(int)
+        self.num_doc_appears = defaultdict(int)
+
+
 
     def train_seen(self, word: str, count: int=1):
         """Tells the language model that a word has been seen @count times.  This
@@ -51,8 +56,11 @@ class TfIdf:
 
         count -- How many times we've seen this word (by default, this is one).
         """
-        
-        self._doc_freq[word] += count
+        if word not in self._train_vocab:
+            self._train_vocab[word] = count
+        else:
+            self._train_vocab[word] += count
+
         
         assert not self._vocab_final, \
             "Trying to add new words to finalized vocab"
@@ -65,9 +73,13 @@ class TfIdf:
 
         text -- The raw string containing a document
         """
-
+        curr_set = set()
         for word in self.tokenize(text):
-            None
+            self._doc_freq[word] += 1
+            if word not in curr_set:
+                curr_set.add(word)
+                self.num_doc_appears[word] += 1
+        self._total_docs += 1
 
     def tokenize(self, sent: str) -> Iterable[int]:
         """Return a generator over tokens in the sentence; return the vocab
@@ -101,7 +113,9 @@ class TfIdf:
 
         word -- The integer lookup of the word.
         """
-
+        #print(self._doc_freq[word])
+        if word in self._vocab.values():
+            return self._doc_freq[word]/sum(self._doc_freq.values())
         return 0.0
 
     def inv_docfreq(self, word: int) -> float:
@@ -112,7 +126,8 @@ class TfIdf:
         word -- The word to look up the document frequency of a word.
 
         """
-
+        if word in self._vocab.values():
+            return log10(self._total_docs / self.num_doc_appears[word])
         return 0.0
 
     def vocab_lookup(self, word: str) -> int:
@@ -142,7 +157,12 @@ class TfIdf:
 
         # Add code to generate the vocabulary that the vocab lookup
         # function can use!
-
+        for key in self._train_vocab:
+            if self._train_vocab[key] >= self._unk_cutoff:
+                self._vocab[key] = self._train_vocab[key]
+            else:
+                self._vocab[kUNK] += self._train_vocab[key]
+    
         self._vocab_final = True
 
 if __name__ == "__main__":
@@ -152,7 +172,7 @@ if __name__ == "__main__":
                            type=str, default='data/',
                            required=False)
     argparser.add_argument("--train_dataset", help="Dataset for training",
-                           type=str, default='obits.train.json',
+                           type=str, default='obits.json',
                            required=False)
     argparser.add_argument("--test_dataset", help="Dataset for test",
                            type=str, default='sparck-jones.txt',
@@ -170,13 +190,16 @@ if __name__ == "__main__":
         for ii in data:
             for word in vocab.tokenize(data[ii]):
                 vocab.train_seen(word)
+        #print(sorted(((k,v) for k,v in vocab._train_vocab.items()), reverse=False))
         vocab.finalize()
-
+        #print(vocab._vocab)
         for ii in data:
             vocab.add_document(data[ii])
+        #print(vocab._doc_freq)
 
-    with open(os.path.join(args.root_dir, args.train_dataset)) as infile:
-        data = json.load(infile)["obit"]
-        vector = vocab.doc_tfidf(data['0'])
+    with open(os.path.join(args.root_dir, args.test_dataset)) as infile:
+        #data = json.load(infile)["obit"]
+        print(infile)
+        vector = vocab.doc_tfidf(infile.read().rstrip())
         for word, tfidf in sorted(vector.items(), key=lambda kv: kv[1], reverse=True)[:50]:
             print("%s:%i\t%f" % (word[1], word[0], tfidf))
