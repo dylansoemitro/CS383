@@ -1,0 +1,4 @@
+The paper "Quantifying the Effects of Text Duplication on Semantic Models" discusses the impacts of repeated or duplicated text in semantic models, specifically LSA and LDA.  They found that the ways that duplication affects different models differ, however the main factors can be summarized as the number of distinct repeated strings, the similarity of repeated strings to the rest of the corpus, and the number of repetitions. Specifically for LDA, they found that it accomodated low rate of document duplication for many documents.
+1. 8 hours.
+2. How to train an LDA model on a corpus of documents, and how to obtain probabilities for training.
+3. Using LDA to find topics in a corpus of academic papers in ML for example.

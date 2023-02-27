@@ -3,7 +3,7 @@ from random import random, randint
 from glob import glob
 from math import log
 import argparse
-
+import math
 from nltk.corpus import stopwords
 from nltk.probability import FreqDist
 
@@ -162,6 +162,7 @@ class LdaTopicCounts:
         """
         Return the normalizer of this topic
         """
+
         return self._beta_sum + self._normalizer[topic]
 
     def get_prior(self, word):
@@ -299,17 +300,24 @@ class Sampler:
             # Hint: you can use the self._doc_counts and self._topics
             # objects to keep track of the counts
             
-            doc_counts = self._doc_counts[doc]
-            doc_counts[old_topic] -= 1
-            if doc_counts[old_topic] == 0:
-
-            
+            self._doc_counts[doc][old_topic] -= 1
+            self._doc_assign[doc][index] = -1
+            self._topics.change_count(old_topic,term, -1)
 
         if new_topic != -1:
             assert old_topic == -1
 
             # TODO: Add code here to keep track of the counts and
             # assignments
+
+            self._doc_counts[doc][new_topic] += 1
+
+            self._topics.change_count(new_topic,term, 1)
+
+        self._doc_assign[doc][index] = new_topic
+
+
+            
 
     def run_sampler(self, iterations = 100):
         """
@@ -366,15 +374,35 @@ class Sampler:
         assert self._doc_assign[doc_id][index] == -1, \
           "Sampling doesn't make sense if this hasn't been unassigned."
         sample_probs = {}
-        term = self._doc_tokens[doc_id][index]
+        term = self._doc_tokens[doc_id][index]    
+
+
         for kk in range(self._num_topics):
 
-            # TODO: Compute the conditional probability of
-            # sampling a topic; at the moment it's just the
-            # uniform probability.
-            sample_probs[kk] = 1.0 / float(self._num_topics)
+        # Compute the conditional probability of sampling a topic
+            #rint("topic: " + str(kk))
+            doc_times = self._doc_counts[doc_id][kk] + self._alpha[kk]
+            total_counts = sum(self._doc_counts[doc_id].values()) + sum(self._alpha)
+            #print(self._topics._default_beta)
+            topic_counts = self._topics.get_observations(kk, term) + self._topics._default_beta
+            normalizer = self._topics.get_normalizer(kk)
+            #print(self._topics._topic_term)
+            # print("doc_times: " + str(doc_times))
+            # print("total_counts: " + str(total_counts))
+            # print("topic counts: " + str(topic_counts))
+            # print("beta: " + str(self._topics._beta_sum))
+            # print("normalizer tests: " + str(self._topics._normalizer[kk]))
+            # print("normalizer: " + str(normalizer))
+            sample_probs[kk] = (doc_times / total_counts) * (topic_counts / normalizer)
+            #sample_probs[kk] = (doc_times / total_counts) * self._topics.word_in_topic(kk, term)
+
+        
+        #print(sample_probs)
 
         return sample_probs
+
+
+
         
 
     def sample_doc(self, doc_id, debug=False):
@@ -457,6 +485,8 @@ if __name__ == "__main__":
                            type=int, default=5, required=False)
     argparser.add_argument("--num_iterations", help="Number of iterations",
                            type=int, default=100, required=False)    
+    argparser.add_argument("--remove_duplicates", help="Remove duplicate documents",
+                           type=bool, default=False, required=False)      
     args = argparser.parse_args()
 
     vocab_scanner = VocabBuilder(args.language)
@@ -464,6 +494,8 @@ if __name__ == "__main__":
     # Create a list of the files
     search_path = u"%s/*.txt" % args.doc_dir
     files = glob(search_path)
+    if args.remove_duplicates:
+        files = list(set(files))
     assert len(files) > 0, "Did not find any input files in %s" % search_path
     
     # Create the vocabulary
