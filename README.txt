@@ -1,0 +1,3 @@
+1. The learning rate controls the magnitude in which we update our weights in each iteration of gradient descent. If the learning rate is too small, it will take a long time to converge to the optimal weights. If the learning rate is too large, we may overshoot the optimal weights and never converge. The learning rate is a hyperparameter that we can tune to get the best results.
+2. It depends on the complexity of the model/dataset. In general, we can use set the number of passes to be when the gradient reaches a certain threshold. If both training and validation loss converge at a similar point, the model is not improving and thus converged. 
+3. 

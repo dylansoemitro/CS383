@@ -3,7 +3,7 @@ import random
 import numpy as np
 from math import exp, log
 from collections import defaultdict
-
+from numpy import dot 
 import argparse
 
 kSEED = 1701
@@ -98,10 +98,8 @@ class LogReg:
         :param use_tfidf: A boolean to switch between the raw data and the tfidf representation
         :return: Return the new value of the regression coefficients
         """
-        
-
-
-
+        gradient = train_example.x * (sigmoid(dot(self.beta, train_example.x))-train_example.y)
+        self.beta = self.beta - self.step(iteration) * gradient
         return self.beta
 
     def finalize_lazy(self, iteration):
