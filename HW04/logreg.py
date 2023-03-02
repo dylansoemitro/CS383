@@ -192,3 +192,14 @@ if __name__ == "__main__":
     lr.finalize_lazy(update_number)
     print("Update %i\tTP %f\tHP %f\tTA %f\tHA %f" %
           (update_number, train_lp, ho_lp, train_acc, ho_acc))
+    print(lr.beta)
+    #Find the best features for each class and their weights
+    best_pos = np.argsort(lr.beta)[-10:]
+    best_neg = np.argsort(lr.beta)[:10]
+
+    print("Best positive features: %s" % " ".join([vocab[ii] for ii in best_pos]))
+    print("Best negative features: %s" % " ".join([vocab[ii] for ii in best_neg]))
+
+    #Find the features which have weights close to 0
+    close_to_zero = np.where(np.abs(lr.beta) < 0.00000000000000000000000001)[0]
+    print("Features close to zero: %s" % " ".join([vocab[ii] for ii in close_to_zero]))
