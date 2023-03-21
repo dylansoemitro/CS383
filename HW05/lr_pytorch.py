@@ -8,6 +8,7 @@ from math import exp, log
 from collections import defaultdict
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer
 
 import argparse
 
@@ -45,12 +46,42 @@ def read_dataset(positive, negative, vocab):
     # We'll need to allocate a matrix to store the data, but we can't start our matrix yet because we don't know the dimensions.
     # So first, what are the number of documents?  You'll need to change the below line, since you can't assume
     # that you have five documents in your dataset.
-    num_docs = 5
 
-    # But once you know the number of documents, you can create a matrix with the appropriate number of dimensions, which we'll call sportsdata.
-    sportsdata = zeros((num_docs, len(list(x for x in vocab.readlines()))))
+    positive_lines = positive.readlines()
+    negative_lines = negative.readlines()
+
+    # Calculate the number of documents
+    num_docs = len(positive_lines) + len(negative_lines)
+
+    vocab_text = vocab.readlines()
+    vocab_words = [line.strip().split('\t')[0] for line in vocab_text]
+    vocab_size = len(vocab_words)
+
+    sportsdata = np.zeros((num_docs, vocab_size + 1))
+
+    def process_line(line, label, sportsdata, index):
+        sportsdata[index, 0] = label
+        words_freq = line.strip().split('\t')
+        words_freq.remove('') if '' in words_freq else words_freq
+       
+        #words_freq = [word_freq.strip() for word_freq in words_freq]
+        #print(words_freq)
+        for word_freq in words_freq:
+            word, count = word_freq.split(':')
+            try:
+                vocab_index = vocab_words.index(word)
+                sportsdata[index, vocab_index + 1] = int(count)
+            except ValueError:
+                # Skip the word if not in the vocabulary
+                pass
+
+    for i, line in enumerate(positive_lines):
+        process_line(line, 1, sportsdata, i)
+    for i, line in enumerate(negative_lines):
+        process_line(line, 0, sportsdata, len(positive_lines) + i)
+
+
     print("Created datasets with %i rows and %i columns" % (num_docs, sportsdata.shape[1]))
-    
     return sportsdata
 
 class SimpleLogreg(nn.Module):
@@ -62,7 +93,8 @@ class SimpleLogreg(nn.Module):
         """
         super(SimpleLogreg, self).__init__()
         # Replace this with a real nn.Module
-        self.linear = None
+        self.linear = nn.Linear(num_features, 1)
+
 
     def forward(self, x):
         """
@@ -70,7 +102,7 @@ class SimpleLogreg(nn.Module):
 
         :param x: Example to evaluate
         """
-        return 0.5
+        return torch.sigmoid(self.linear(x))
 
     def evaluate(self, data):
         with torch.no_grad():
@@ -95,6 +127,19 @@ def step(epoch, ex, model, optimizer, criterion, inputs, labels):
     :param inputs: The current set of inputs
     :param labels: The labels for those inputs
     """
+
+    # Forward pass
+    # model.train()
+
+    # # Compute predictions
+    optimizer.zero_grad()
+
+    y_predicted = model(inputs)
+    loss = criterion(y_predicted, labels)
+    loss.backward()
+    optimizer.step()
+
+
 
     if (ex+1) % 20 == 0:
       acc_train = model.evaluate(train)
@@ -133,8 +178,8 @@ if __name__ == "__main__":
     total_samples = len(train)
 
     # Replace these with the correct loss and optimizer
-    criterion = None
-    optimizer = None
+    criterion = nn.BCELoss()
+    optimizer = torch.optim.SGD(logreg.parameters(), lr=args.learnrate)
     
     train_loader = DataLoader(dataset=train,
                               batch_size=batch,
@@ -147,3 +192,13 @@ if __name__ == "__main__":
       for ex, (inputs, labels) in enumerate(train_loader):
         # Run your training process
         step(epoch, ex, logreg, optimizer, criterion, inputs, labels)
+
+    #Print best features
+    weights = logreg.linear.weight.detach().numpy().squeeze()
+
+    best_pos = np.argsort(weights)[-10:]
+    best_neg = np.argsort(weights)[:10]
+    vocab = [x.split("\t")[0] for x in open(args.vocab, 'r') if '\t' in x]
+    print("Best positive features: %s" % " ".join([vocab[ii] for ii in best_pos]))
+    print("Best negative features: %s" % " ".join([vocab[ii] for ii in best_neg]))
+
